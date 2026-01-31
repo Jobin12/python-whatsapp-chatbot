@@ -6,11 +6,10 @@ from sqlalchemy.orm import sessionmaker
 
 from urllib.parse import quote_plus
 
-# Database Configuration
 # Using the credentials provided by the user
 DB_USER = "hospital"
 DB_PASS = "reality@123"
-DB_HOST = "0.0.0.0" # Or localhost since it port forwards
+DB_HOST = os.getenv("DB_HOST", "0.0.0.0") # Use env var, fallback to 0.0.0.0 (local dev)
 DB_PORT = "5432"
 DB_NAME = "mydb"
 
