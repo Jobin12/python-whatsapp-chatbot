@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from urllib.parse import quote_plus
+import uuid
 
 # Using the credentials provided by the user
 DB_USER = "hospital"
@@ -79,13 +80,15 @@ def book_appointment_slot(patient_name: str, patient_phone: str, doctor_id: str,
             if result:
                 patient_id = result[0]
             else:
-                # Create new patient
+                # Create new patient with explicit UUID
+                patient_id = str(uuid.uuid4())
                 create_patient_query = text("""
-                    INSERT INTO patients (full_name, phone) 
-                    VALUES (:name, :phone) 
+                    INSERT INTO patients (id, full_name, phone) 
+                    VALUES (:id, :name, :phone) 
                     RETURNING id
                 """)
-                patient_id = session.execute(create_patient_query, {"name": patient_name, "phone": patient_phone}).scalar()
+                # Explicitly pass the generated patient_id
+                session.execute(create_patient_query, {"id": patient_id, "name": patient_name, "phone": patient_phone})
             
             # 2. Check and Lock Slot
             # We use a transaction here
@@ -99,16 +102,18 @@ def book_appointment_slot(patient_name: str, patient_phone: str, doctor_id: str,
                 return {"status": "error", "message": "Slot already booked."}
             
             # 3. Create Appointment
+            appt_id = str(uuid.uuid4())
             create_appt_query = text("""
-                INSERT INTO appointments (doctor_id, patient_id, availability_id, status, created_at)
-                VALUES (:doctor_id, :patient_id, :slot_id, 'scheduled', NOW())
+                INSERT INTO appointments (id, doctor_id, patient_id, availability_id, status, created_at)
+                VALUES (:id, :doctor_id, :patient_id, :slot_id, 'scheduled', NOW())
                 RETURNING id
             """)
-            appt_id = session.execute(create_appt_query, {
+            session.execute(create_appt_query, {
+                "id": appt_id,
                 "doctor_id": doctor_id,
                 "patient_id": patient_id,
                 "slot_id": slot_id
-            }).scalar()
+            })
             
             # 4. Mark Slot as Booked
             update_slot_query = text("UPDATE doctor_availability SET is_booked = TRUE WHERE id = :slot_id")
