@@ -48,6 +48,8 @@ def send_message(data):
         requests.RequestException
     ) as e:  # This will catch any general request exception
         logging.error(f"Request failed due to: {e}")
+        if e.response is not None:
+             logging.error(f"Response body: {e.response.text}")
         return jsonify({"status": "error", "message": "Failed to send message"}), 500
     else:
         # Process the response as normal
