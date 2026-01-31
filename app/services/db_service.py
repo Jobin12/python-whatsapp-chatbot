@@ -52,7 +52,7 @@ def get_doctor_availability(doctor_id: int, date: str):
                 start = row.start_time.strftime("%H:%M") if hasattr(row.start_time, 'strftime') else str(row.start_time)
                 end = row.end_time.strftime("%H:%M") if hasattr(row.end_time, 'strftime') else str(row.end_time)
                 slots.append({
-                    "slot_id": row.id,
+                    "slot_id": str(row.id),
                     "start_time": start,
                     "end_time": end
                 })
@@ -115,7 +115,8 @@ def book_appointment_slot(patient_name: str, patient_phone: str, doctor_id: int,
             session.execute(update_slot_query, {"slot_id": slot_id})
             
             session.commit()
-            return {"status": "success", "appointment_id": appt_id}
+            session.commit()
+            return {"status": "success", "appointment_id": str(appt_id)}
             
     except Exception as e:
         logging.error(f"Error booking appointment: {e}")
@@ -138,7 +139,7 @@ def search_doctors(query_str: str):
             doctors = []
             for row in result:
                 doctors.append({
-                    "id": row.id,
+                    "id": str(row.id),
                     "name": row.full_name,
                     "specialization": row.specialization,
                     "department": row.dept_name
@@ -169,7 +170,7 @@ def get_appointments_by_phone(phone: str):
             for row in result:
                 start = row.start_time.strftime("%H:%M") if hasattr(row.start_time, 'strftime') else str(row.start_time)
                 appointments.append({
-                    "appointment_id": row.id,
+                    "appointment_id": str(row.id),
                     "doctor": row.doctor_name,
                     "date": str(row.slot_date),
                     "time": start,
