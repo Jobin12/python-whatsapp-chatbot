@@ -7,3 +7,5 @@ google-generativeai
 langchain
 langgraph
 langchain-google-genai
+psycopg2-binary
+sqlalchemy
