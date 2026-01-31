@@ -25,7 +25,7 @@ def get_text_message_input(recipient, text):
     )
 
 
-from app.services.gemini_service import generate_response
+from app.services.agent_service import run_agent
 
 
 def send_message(data):
@@ -83,7 +83,7 @@ def process_whatsapp_message(body):
     message_body = message["text"]["body"]
 
     # TODO: implement custom function here
-    response = generate_response(message_body)
+    response = run_agent(message_body, wa_id)
 
     # OpenAI Integration
     # response = generate_response(message_body, wa_id, name)

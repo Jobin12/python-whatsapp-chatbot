@@ -4,3 +4,6 @@ openai
 aiohttp
 requests
 google-generativeai
+langchain
+langgraph
+langchain-google-genai
