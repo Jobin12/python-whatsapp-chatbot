@@ -1,11 +1,12 @@
 import logging
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 
 from langchain.agents import create_agent
-from langchain.messages import SystemMessage, HumanMessage
+from langchain.messages import SystemMessage, HumanMessage, RemoveMessage
+from langchain_core.messages import BaseMessage
 from langchain.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import MemorySaver
@@ -73,7 +74,7 @@ def get_my_appointments(patient_phone: str):
     return json.dumps(results)
 
 @tool
-def cancel_appointment(appointment_id: int):
+def cancel_appointment(appointment_id: str):
     """
     Cancel an appointment by ID.
     Always confirm with the user before calling this.
@@ -83,7 +84,7 @@ def cancel_appointment(appointment_id: int):
     return json.dumps(result)
 
 @tool
-def check_doctor_availability(doctor_id: int, date: str):
+def check_doctor_availability(doctor_id: str, date: str):
     """
     Check available slots for a specific doctor on a given date (YYYY-MM-DD).
     Requires 'doctor_id' (get this from find_doctors if needed).
@@ -105,7 +106,7 @@ def check_doctor_availability(doctor_id: int, date: str):
         return f"Error checking availability: {str(e)}"
 
 @tool
-def book_appointment(doctor_id: int, slot_id: int, patient_name: str, patient_phone: str):
+def book_appointment(doctor_id: str, slot_id: str, patient_name: str, patient_phone: str):
     """
     Book an appointment. 
     Can ONLY be called after checking availability and confirming with the user.
@@ -115,18 +116,26 @@ def book_appointment(doctor_id: int, slot_id: int, patient_name: str, patient_ph
     result = db_service.book_appointment_slot(patient_name, patient_phone, doctor_id, slot_id)
     return json.dumps(result)
 
+
+
 # --- Agent Definition ---
 
 _agent_runner = None
+_llm_instance = None # Keep reference for summarization
+
+def get_llm():
+    global _llm_instance
+    if _llm_instance is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY is not set")
+        _llm_instance = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", google_api_key=api_key)
+    return _llm_instance
 
 def get_agent_runner():
     global _agent_runner
     if _agent_runner is None:
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY is not set")
-            
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", google_api_key=api_key)
+        llm = get_llm()
         
         # Added find_doctors and new appointment tools to tools list
         tools = [search_knowledge_base, find_doctors, check_doctor_availability, book_appointment, get_my_appointments, cancel_appointment]
@@ -145,13 +154,90 @@ def get_agent_runner():
         )
     return _agent_runner
 
+def manage_conversation_history(agent_runner, config: dict):
+    """
+    Checks history. If messages are > 24h old, summarizes and prunes them.
+    Returns the list of update operations for the graph.
+    """
+    try:
+        # 1. Fetch current state
+        state_snapshot = agent_runner.get_state(config)
+        messages: List[BaseMessage] = state_snapshot.values.get("messages", [])
+        
+        if not messages:
+            return
+            
+        now = datetime.now()
+        messages_to_prune = []
+        messages_to_summarize = []
+        
+        # 2. Identify old messages
+        # Skip the first message if it's the system prompt (usually handled by create_agent implicitly, 
+        # but if explicit SystemMessage matches our prompt, we treat it carefully).
+        # We look for 'timestamp' in additional_kwargs.
+        
+        for msg in messages:
+            # Skip SystemMessages to ensure prompt stays
+            if isinstance(msg, SystemMessage):
+                continue
+                
+            timestamp_str = msg.additional_kwargs.get("timestamp")
+            if timestamp_str:
+                msg_time = datetime.fromisoformat(timestamp_str)
+                age = now - msg_time
+                if age > timedelta(hours=24):
+                    messages_to_prune.append(msg)
+                    messages_to_summarize.append(msg)
+        
+        if not messages_to_prune:
+            return
+
+        logging.info(f"Summarizing {len(messages_to_prune)} old messages...")
+        
+        # 3. Generate Summary
+        # We use a direct LLM call for this
+        llm = get_llm()
+        conversation_text = "\n".join([f"{m.type}: {m.content}" for m in messages_to_summarize])
+        summary_prompt = f"Summarize the following old conversation history into 2-3 concise sentences. Focus on facts (Patient Name, Appointments booked, Preferences).:\n\n{conversation_text}"
+        
+        summary_response = llm.invoke(summary_prompt)
+        summary_content = summary_response.content
+        
+        logging.info(f"Generated Summary: {summary_content}")
+        
+        # 4. Update Graph State
+        # We add a new SystemMessage with the summary and remove the old messages.
+        
+        updates = []
+        
+        # Add Summary
+        summary_msg = SystemMessage(content=f"PREVIOUS CONVERSATION SUMMARY (Older than 24h): {summary_content}")
+        updates.append(summary_msg)
+        
+        # Remove old messages
+        for msg in messages_to_prune:
+            updates.append(RemoveMessage(id=msg.id))
+            
+        agent_runner.update_state(config, {"messages": updates})
+        
+    except Exception as e:
+        logging.error(f"Error in memory management: {e}")
+
 def run_agent(message_body: str, wa_id: str):
     try:
         agent = get_agent_runner()
         config = {"configurable": {"thread_id": wa_id}}
         
-        input_payload = {"messages": [HumanMessage(content=message_body)]}
+        # 1. Manage History (Summarize & Prune) BEFORE adding new message
+        manage_conversation_history(agent, config)
         
+        # 2. Add User Message with Timestamp
+        timestamp = datetime.now().isoformat()
+        input_message = HumanMessage(content=message_body, additional_kwargs={"timestamp": timestamp})
+        
+        input_payload = {"messages": [input_message]}
+        
+        # 3. Invoke Agent
         result = agent.invoke(input_payload, config=config)
         
         return result["messages"][-1].content

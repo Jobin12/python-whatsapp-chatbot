@@ -30,7 +30,7 @@ def get_db_connection():
         raise Exception("Database engine is not initialized.")
     return engine.connect()
 
-def get_doctor_availability(doctor_id: int, date: str):
+def get_doctor_availability(doctor_id: str, date: str):
     """
     Fetch available slots for a doctor on a specific date.
     """
@@ -61,7 +61,7 @@ def get_doctor_availability(doctor_id: int, date: str):
         logging.error(f"Error fetching availability: {e}")
         return []
 
-def book_appointment_slot(patient_name: str, patient_phone: str, doctor_id: int, slot_id: int):
+def book_appointment_slot(patient_name: str, patient_phone: str, doctor_id: str, slot_id: str):
     """
     Book a slot for a patient.
     1. Check if patient exists, create if not.
@@ -127,7 +127,7 @@ def search_doctors(query_str: str):
     Find doctors by name or department.
     """
     query = text("""
-        SELECT d.id, d.full_name, d.specialization, dept.name as dept_name
+        SELECT d.id, d.full_name, d.specialization, d.qualification, d.experience_years, d.languages, dept.name as dept_name
         FROM doctors d
         JOIN departments dept ON d.department_id = dept.id
         WHERE d.full_name ILIKE :q OR d.specialization ILIKE :q OR dept.name ILIKE :q
@@ -142,7 +142,10 @@ def search_doctors(query_str: str):
                     "id": str(row.id),
                     "name": row.full_name,
                     "specialization": row.specialization,
-                    "department": row.dept_name
+                    "department": row.dept_name,
+                    "qualification": row.qualification,
+                    "experience": f"{row.experience_years} years",
+                    "languages": row.languages
                 })
             return doctors
     except Exception as e:
@@ -181,7 +184,7 @@ def get_appointments_by_phone(phone: str):
         logging.error(f"Error fetching appointments: {e}")
         return []
 
-def cancel_appointment(appointment_id: int):
+def cancel_appointment(appointment_id: str):
     """
     Cancel an appointment and free the slot.
     """
