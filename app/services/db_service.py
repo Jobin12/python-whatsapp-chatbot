@@ -4,6 +4,8 @@ from datetime import datetime
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
+from urllib.parse import quote_plus
+
 # Database Configuration
 # Using the credentials provided by the user
 DB_USER = "hospital"
@@ -13,7 +15,8 @@ DB_PORT = "5432"
 DB_NAME = "mydb"
 
 # Construct Connection String
-DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+# URL-encode credentials to handle special characters like '@' in the password
+DATABASE_URL = f"postgresql+psycopg2://{quote_plus(DB_USER)}:{quote_plus(DB_PASS)}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 try:
     engine = create_engine(DATABASE_URL)
