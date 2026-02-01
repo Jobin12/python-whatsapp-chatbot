@@ -9,3 +9,5 @@ langgraph
 langchain-google-genai
 psycopg2-binary
 sqlalchemy
+boto3
+langchain-aws

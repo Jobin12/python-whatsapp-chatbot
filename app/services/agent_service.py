@@ -13,6 +13,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from app.prompts import SYSTEM_PROMPT
 from app.services import db_service
+from app.services.rag_service import rag_service
 
 # --- Tools with Real DB Logic ---
 
@@ -23,30 +24,13 @@ def search_knowledge_base(query: str):
     Use this for questions about departments, doctors, policies, location, services, etc.
     """
     logging.info(f"Searching KB for: {query}")
-    # Mock responses based on keywords (KB Mock is still valid as KB is separate from SQL DB)
-    query_lower = query.lower()
     
-    if "cardio" in query_lower or "heart" in query_lower:
-        return """
-        Department: Cardiology
-        Head: Dr. Sarah Johnson
-        Services: ECG, Echo, Angioplasty
-        Location: Building A, 2nd Floor
-        Note: Emergency cardiac services are available 24x7.
-        """
-    elif "appointment" in query_lower or "booking" in query_lower:
-        return """
-        To book an appointment, please provide:
-        - Department or Doctor name
-        - Preferred Date
-        - Patient Name and Phone (if not provided)
+    # Lazy initialization
+    if not rag_service.vector_store:
+        logging.info("Initializing S3 Vector Store on first query...")
+        rag_service.initialize_vector_store()
         
-        We prioritize emergency cases. For emergencies, visit the ER immediately.
-        """
-    elif "insurance" in query_lower or "bill" in query_lower:
-        return "We accept all major insurance providers including BlueCross, Aetna, and Cigna. Billing desk is open 9 AM - 5 PM."
-    else:
-        return "Green Valley Multi-Specialty Hospital is located at 123 Health Ave. We are open 24x7. Main reception: +1-555-0199."
+    return rag_service.query_knowledge_base(query)
 
 @tool
 def find_doctors(query: str):
