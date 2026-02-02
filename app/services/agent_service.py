@@ -25,12 +25,13 @@ def search_knowledge_base(query: str):
     """
     logging.info(f"Searching KB for: {query}")
     
-    # Lazy initialization
     if not rag_service.vector_store:
         logging.info("Initializing S3 Vector Store on first query...")
         rag_service.initialize_vector_store()
         
-    return rag_service.query_knowledge_base(query)
+    result = rag_service.query_knowledge_base(query)
+    logging.info(f"RAG Tool returning to Agent: {result[:200]}...") # Log first 200 chars
+    return result
 
 @tool
 def find_doctors(query: str):

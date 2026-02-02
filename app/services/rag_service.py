@@ -52,14 +52,31 @@ class RagService:
 
     def query_knowledge_base(self, query: str):
         if not self.vector_store:
+            logging.warning("RAG Attempted but Vector Store not initialized.")
             return "Knowledge Base is currently unavailable. Please contact support."
             
         try:
+            logging.info(f"--- RAG QUERY START ---")
+            logging.info(f"Query: {query}")
+            
             # S3 Vectors supports similarity search
             docs = self.vector_store.similarity_search(query, k=3)
-            return "\n\n".join([d.page_content for d in docs])
+            
+            logging.info(f"Retrieved {len(docs)} documents.")
+            for i, doc in enumerate(docs):
+                logging.info(f"Doc {i+1} Content Preview: {doc.page_content[:200]}...")
+                
+            final_response = "\n\n".join([d.page_content for d in docs])
+            
+            if not final_response.strip():
+                logging.warning("RAG retrieved 0 non-empty documents.")
+                return "No relevant information found in the Knowledge Base."
+                
+            logging.info(f"--- RAG QUERY END ---")
+            return final_response
+            
         except Exception as e:
-            logging.error(f"RAG Query Error: {e}")
+            logging.error(f"RAG Query Error: {e}", exc_info=True)
             return "Error retrieving information from Knowledge Base."
 
 # Global Instance
