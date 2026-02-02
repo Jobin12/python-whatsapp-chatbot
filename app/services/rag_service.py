@@ -12,8 +12,18 @@ class RagService:
         self.index_name = os.getenv("VECTOR_INDEX_NAME")
         
         # Initialize Clients
-        self.s3_client = boto3.client('s3', region_name=self.s3_region)
-        self.bedrock_client = boto3.client('bedrock-runtime', region_name=self.bedrock_region)
+        self.s3_client = boto3.client(
+            's3', 
+            region_name=self.s3_region,
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+        )
+        self.bedrock_client = boto3.client(
+            'bedrock-runtime', 
+            region_name=self.bedrock_region,
+            aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+        )
         
         self.embeddings = BedrockEmbeddings(
             client=self.bedrock_client,
