@@ -30,7 +30,7 @@ class RagService:
             # According to LangChain docs for AmazonS3Vectors
             self.vector_store = AmazonS3Vectors(
                 embedding=self.embeddings,
-                bucket_name=self.bucket_name,
+                vector_bucket_name=self.bucket_name,
                 index_name=self.index_name,
                 region_name=self.s3_region
             )
