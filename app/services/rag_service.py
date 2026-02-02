@@ -4,6 +4,9 @@ import logging
 from langchain_aws import BedrockEmbeddings
 from langchain_aws.vectorstores import AmazonS3Vectors
 
+# Force INFO logging to see output
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', force=True)
+
 class RagService:
     def __init__(self):
         self.s3_region = os.getenv("AWS_S3_REGION", "us-east-1")
