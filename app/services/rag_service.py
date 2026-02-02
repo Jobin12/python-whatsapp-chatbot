@@ -66,11 +66,18 @@ class RagService:
             docs = self.vector_store.similarity_search(query, k=3)
             
             logging.info(f"Retrieved {len(docs)} documents.")
+            results = []
             for i, doc in enumerate(docs):
-                logging.info(f"Doc {i+1} Content Preview: '{doc.page_content[:200]}'")
-                logging.info(f"Doc {i+1} Metadata: {doc.metadata}")
+                # Fallback: If page_content is empty, try to get it from metadata
+                content = doc.page_content
+                if not content and "content" in doc.metadata:
+                    content = doc.metadata["content"]
                 
-            final_response = "\n\n".join([d.page_content for d in docs])
+                logging.info(f"Doc {i+1} Final Content Preview: '{content[:200]}'")
+                if content:
+                    results.append(content)
+
+            final_response = "\n\n".join(results)
             
             if not final_response.strip():
                 logging.warning("RAG retrieved 0 non-empty documents.")
