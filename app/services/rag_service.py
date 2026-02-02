@@ -67,7 +67,8 @@ class RagService:
             
             logging.info(f"Retrieved {len(docs)} documents.")
             for i, doc in enumerate(docs):
-                logging.info(f"Doc {i+1} Content Preview: {doc.page_content[:200]}...")
+                logging.info(f"Doc {i+1} Content Preview: '{doc.page_content[:200]}'")
+                logging.info(f"Doc {i+1} Metadata: {doc.metadata}")
                 
             final_response = "\n\n".join([d.page_content for d in docs])
             
